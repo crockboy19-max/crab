@@ -110,13 +110,13 @@
     <canvas id="gameCanvas"></canvas>
     <div id="bubbleBackground"></div>
 
-    <!-- Hidden audio elements -->
-    <audio id="bgMusic" loop preload="auto"></audio>
-    <audio id="moveSound" preload="auto"></audio>
-    <audio id="hitSound" preload="auto"></audio>
-    <audio id="healSound" preload="auto"></audio>
-    <audio id="gameOverSound" preload="auto"></audio>
-    <audio id="bubbleSound" preload="auto"></audio>
+    <!-- Audio elements with working sound links -->
+    <audio id="bgMusic" loop preload="auto" src="https://assets.mixkit.co/music/preview/mixkit-underwater-seascape-2391.mp3"></audio>
+    <audio id="moveSound" preload="auto" src="https://assets.mixkit.co/sfx/preview/mixkit-quick-jump-arcade-game-239.mp3"></audio>
+    <audio id="hitSound" preload="auto" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-retro-game-over-213.mp3"></audio>
+    <audio id="healSound" preload="auto" src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3"></audio>
+    <audio id="gameOverSound" preload="auto" src="https://assets.mixkit.co/sfx/preview/mixkit-sad-game-over-trombone-471.mp3"></audio>
+    <audio id="bubbleSound" preload="auto" src="https://assets.mixkit.co/sfx/preview/mixkit-bubbles-in-water-1164.mp3"></audio>
 
     <script>
         // Game Setup
@@ -135,47 +135,6 @@
         const healSound = document.getElementById('healSound');
         const gameOverSound = document.getElementById('gameOverSound');
         const bubbleSound = document.getElementById('bubbleSound');
-        
-        // Sound sources (hosted on SoundCloud)
-        const soundSources = {
-            bgMusic: "https://soundcloud.com/user-123456789/underwater-ambient/s-ABC123",
-            moveSound: "https://soundcloud.com/user-123456789/bubble-pop/s-DEF456",
-            hitSound: "https://soundcloud.com/user-123456789/negative-beep/s-GHI789",
-            healSound: "https://soundcloud.com/user-123456789/positive-chime/s-JKL012",
-            gameOverSound: "https://soundcloud.com/user-123456789/sad-trombone/s-MNO345",
-            bubbleSound: "https://soundcloud.com/user-123456789/bubble-rise/s-PQR678"
-        };
-        
-        // Set audio sources
-        function loadAudio() {
-            bgMusic.src = soundSources.bgMusic;
-            moveSound.src = soundSources.moveSound;
-            hitSound.src = soundSources.hitSound;
-            healSound.src = soundSources.healSound;
-            gameOverSound.src = soundSources.gameOverSound;
-            bubbleSound.src = soundSources.bubbleSound;
-            
-            // Set volume levels
-            bgMusic.volume = 0.3;
-            moveSound.volume = 0.5;
-            hitSound.volume = 0.6;
-            healSound.volume = 0.6;
-            gameOverSound.volume = 0.7;
-            bubbleSound.volume = 0.4;
-        }
-        
-        // Sound toggle
-        let soundEnabled = true;
-        soundToggle.addEventListener('click', () => {
-            soundEnabled = !soundEnabled;
-            soundToggle.textContent = soundEnabled ? "🔊" : "🔇";
-            
-            if (soundEnabled) {
-                bgMusic.play().catch(e => console.log("Audio play prevented:", e));
-            } else {
-                bgMusic.pause();
-            }
-        });
         
         // Set canvas size
         canvas.width = window.innerWidth;
@@ -202,7 +161,20 @@
         let lastObstacleTime = 0;
         let crabSwimPhase = 0;
         let lastBubbleSoundTime = 0;
-        
+        let soundEnabled = true;
+
+        // Sound toggle
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggle.textContent = soundEnabled ? "🔊" : "🔇";
+            
+            if (soundEnabled) {
+                bgMusic.play().catch(e => console.log("Audio play prevented:", e));
+            } else {
+                bgMusic.pause();
+            }
+        });
+
         // Images
         const crabImg = new Image();
         crabImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 70"><defs><linearGradient id="crabGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="%23FF3333"/><stop offset="100%" stop-color="%23CC0000"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="rgba(0,0,0,0.5)"/></filter></defs><g filter="url(%23shadow)"><ellipse cx="50" cy="35" rx="40" ry="25" fill="url(%23crabGrad)"/><circle cx="30" cy="25" r="5" fill="%23333"/><circle cx="70" cy="25" r="5" fill="%23333"/><path d="M25 35 Q30 40 35 35" stroke="%23333" fill="transparent" stroke-width="2"/><path d="M65 35 Q70 40 75 35" stroke="%23333" fill="transparent" stroke-width="2"/><path d="M15 15 L5 5 M85 15 L95 5" stroke="url(%23crabGrad)" stroke-width="5" stroke-linecap="round"/><path d="M15 55 L5 65 M85 55 L95 65" stroke="url(%23crabGrad)" stroke-width="5" stroke-linecap="round"/><path d="M20 20 L40 25 M20 50 L40 45" stroke="url(%23crabGrad)" stroke-width="5" stroke-linecap="round"/><path d="M80 20 L60 25 M80 50 L60 45" stroke="url(%23crabGrad)" stroke-width="5" stroke-linecap="round"/></g></svg>';
@@ -231,9 +203,6 @@
         
         // Initialize game elements
         function initGame() {
-            // Load audio
-            loadAudio();
-            
             // Create bubbles
             bubbles = [];
             for (let i = 0; i < BUBBLE_COUNT; i++) {
@@ -541,14 +510,14 @@
                 crabPosition--;
                 if (soundEnabled) {
                     moveSound.currentTime = 0;
-                    moveSound.play().catch(e => console.log("Move sound prevented:", e));
+                    moveSound.play().catch(e => console.log("Move sound prevented"));
                 }
             }
             else if (e.key === 'ArrowRight' && crabPosition < LANE_COUNT - 1) {
                 crabPosition++;
                 if (soundEnabled) {
                     moveSound.currentTime = 0;
-                    moveSound.play().catch(e => console.log("Move sound prevented:", e));
+                    moveSound.play().catch(e => console.log("Move sound prevented"));
                 }
             }
         });
@@ -570,14 +539,14 @@
                     crabPosition++;
                     if (soundEnabled) {
                         moveSound.currentTime = 0;
-                        moveSound.play().catch(e => console.log("Move sound prevented:", e));
+                        moveSound.play().catch(e => console.log("Move sound prevented"));
                     }
                 }
                 else if (diff < 0 && crabPosition > 0) {
                     crabPosition--;
                     if (soundEnabled) {
                         moveSound.currentTime = 0;
-                        moveSound.play().catch(e => console.log("Move sound prevented:", e));
+                        moveSound.play().catch(e => console.log("Move sound prevented"));
                     }
                 }
             }
@@ -597,6 +566,14 @@
             canvas.height = window.innerHeight;
             initGame();
         });
+
+        // Initialize audio volumes
+        bgMusic.volume = 0.3;
+        moveSound.volume = 0.5;
+        hitSound.volume = 0.6;
+        healSound.volume = 0.6;
+        gameOverSound.volume = 0.7;
+        bubbleSound.volume = 0.4;
     </script>
 </body>
 </html>
