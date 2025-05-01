@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Red Crab Swimmer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0a2e38;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #0c3745;
+        }
+        #scoreDisplay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: #ffcc00;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(255, 100, 100, 0.7);
+            z-index: 10;
+        }
+        #healthBar {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 120px;
+            height: 20px;
+            background: rgba(255, 100, 100, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #ff6464;
+            z-index: 10;
+        }
+        #healthFill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(to right, #ff6464, #ff0000);
+            transition: width 0.3s;
+        }
+        .bubble-bg {
+            position: absolute;
+            color: rgba(100, 200, 255, 0.1);
+            font-size: 80px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 0;
+            width: 300px;
+            text-align: center;
+        }
+        #startScreen, #gameOverOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 46, 56, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #ffcc00;
+            font-size: 24px;
+            z-index: 100;
+        }
+        .game-button {
+            background: linear-gradient(45deg, #ff6464, #ffcc00);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        #soundToggle {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>Red Crab Swimmer</h1>
+        <p>Swipe left/right or use arrow keys to move</p>
+        <button id="startBtn" class="game-button">Start Game</button>
+    </div>
+
+    <div id="scoreDisplay">Score: 0</div>
+    <div id="healthBar"><div id="healthFill"></div></div>
+    <button id="soundToggle">🔊</button>
+    <canvas id="gameCanvas"></canvas>
+    <div id="bubbleBackground"></div>
+
+    <!-- Hidden audio elements -->
+    <audio id="bgMusic" loop preload="auto"></audio>
+    <audio id="moveSound" preload="auto"></audio>
+    <audio id="hitSound" preload="auto"></audio>
+    <audio id="healSound" preload="auto"></audio>
+    <audio id="gameOverSound" preload="auto"></audio>
+    <audio id="bubbleSound" preload="auto"></audio>
+
+    <script>
+        // Game Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const healthFill = document.getElementById('healthFill');
+        const bubbleBg = document.getElementById('bubbleBackground');
+        const startScreen = document.getElementById('startScreen');
+        const soundToggle = document.getElementById('soundToggle');
+        
+        // Audio elements
+        const bgMusic = document.getElementById('bgMusic');
+        const moveSound = document.getElementById('moveSound');
+        const hitSound = document.getElementById('hitSound');
+        const healSound = document.getElementById('healSound');
+        const gameOverSound = document.getElementById('gameOverSound');
+        const bubbleSound = document.getElementById('bubbleSound');
+        
+        // Sound sources (hosted on SoundCloud)
+        const soundSources = {
+            bgMusic: "https://soundcloud.com/user-123456789/underwater-ambient/s-ABC123",
+            moveSound: "https://soundcloud.com/user-123456789/bubble-pop/s-DEF456",
+            hitSound: "https://soundcloud.com/user-123456789/negative-beep/s-GHI789",
+            healSound: "https://soundcloud.com/user-123456789/positive-chime/s-JKL012",
+            gameOverSound: "https://soundcloud.com/user-123456789/sad-trombone/s-MNO345",
+            bubbleSound: "https://soundcloud.com/user-123456789/bubble-rise/s-PQR678"
+        };
+        
+        // Set audio sources
+        function loadAudio() {
+            bgMusic.src = soundSources.bgMusic;
+            moveSound.src = soundSources.moveSound;
+            hitSound.src = soundSources.hitSound;
+            healSound.src = soundSources.healSound;
+            gameOverSound.src = soundSources.gameOverSound;
+            bubbleSound.src = soundSources.bubbleSound;
+            
+            // Set volume levels
+            bgMusic.volume = 0.3;
+            moveSound.volume = 0.5;
+            hitSound.volume = 0.6;
+            healSound.volume = 0.6;
+            gameOverSound.volume = 0.7;
+            bubbleSound.volume = 0.4;
+        }
+        
+        // Sound toggle
+        let soundEnabled = true;
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggle.textContent = soundEnabled ? "🔊" : "🔇";
+            
+            if (soundEnabled) {
+                bgMusic.play().catch(e => console.log("Audio play prevented:", e));
+            } else {
+                bgMusic.pause();
+            }
+        });
+        
+        // Set canvas size
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // Game Constants
+        const LANE_COUNT = 3;
+        const LANE_WIDTH = 80;
+        const GAP = (canvas.width - LANE_COUNT * LANE_WIDTH) / (LANE_COUNT + 1);
+        const CRAB_WIDTH = 60;
+        const CRAB_HEIGHT = 40;
+        const OBSTACLE_TYPES = ['seaweed', 'jellyfish'];
+        const BUBBLE_COUNT = 30;
+        const MAX_HEALTH = 150;
+        
+        // Game State
+        let score = 0;
+        let health = MAX_HEALTH;
+        let gameSpeed = 1;
+        let crabPosition = 1;
+        let obstacles = [];
+        let bubbles = [];
+        let gameRunning = false;
+        let lastObstacleTime = 0;
+        let crabSwimPhase = 0;
+        let lastBubbleSoundTime = 0;
+        
+        // Images
+        const crabImg = new Image();
+        crabImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 70"><defs><linearGradient id="crabGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="%23FF3333"/><stop offset="100%" stop-color="%23CC0000"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="rgba(0,0,0,0.5)"/></filter></defs><g filter="url(%23shadow)"><ellipse cx="50" cy="35" rx="40" ry="25" fill="url(%23crabGrad)"/><circle cx="30" cy="25" r="5" fill="%23333"/><circle cx="70" cy="25" r="5" fill="%23333"/><path d="M25 35 Q30 40 35 35" stroke="%23333" fill="transparent" stroke-width="2"/><path d="M65 35 Q70 40 75 35" stroke="%23333" fill="transparent" stroke-width="2"/><path d="M15 15 L5 5 M85 15 L95 5" stroke="url(%23crabGrad)" stroke-width="5" stroke-linecap="round"/><path d="M15 55 L5 65 M85 55 L95 65" stroke="url(%23crabGrad)" stroke-width="5" stroke-linecap="round"/><path d="M20 20 L40 25 M20 50 L40 45" stroke="url(%23crabGrad)" stroke-width="5" stroke-linecap="round"/><path d="M80 20 L60 25 M80 50 L60 45" stroke="url(%23crabGrad)" stroke-width="5" stroke-linecap="round"/></g></svg>';
+        
+        const obstacleImages = {
+            'seaweed': generateSeaweedSVG('#2E8B57'),
+            'jellyfish': generateJellyfishSVG('#FF66B2')
+        };
+        
+        const bubbleImg = new Image();
+        bubbleImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="rgba(100, 200, 255, 0.3)" stroke="rgba(255, 255, 255, 0.5)" stroke-width="2"/></svg>';
+        
+        function generateSeaweedSVG(color) {
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 100"><path d="M30 0 Q40 20 30 40 Q20 60 30 80 Q40 100 30 100 Q20 100 30 80 Q20 60 30 40 Q40 20 30 0 Z" fill="${color}"/></svg>`;
+            const img = new Image();
+            img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+            return img;
+        }
+        
+        function generateJellyfishSVG(color) {
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 100"><path d="M40 0 Q60 20 40 40 Q60 60 40 80 Q20 60 40 40 Q20 20 40 0 Z" fill="${color}"/><path d="M40 80 L30 100 M40 80 L50 100" stroke="${color}" stroke-width="3" stroke-linecap="round"/></svg>`;
+            const img = new Image();
+            img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+            return img;
+        }
+        
+        // Initialize game elements
+        function initGame() {
+            // Load audio
+            loadAudio();
+            
+            // Create bubbles
+            bubbles = [];
+            for (let i = 0; i < BUBBLE_COUNT; i++) {
+                bubbles.push({
+                    x: Math.random() * canvas.width,
+                    y: canvas.height + Math.random() * 100,
+                    size: 10 + Math.random() * 30,
+                    speed: 1 + Math.random() * 3,
+                    opacity: 0.2 + Math.random() * 0.5
+                });
+            }
+            
+            // Create background bubble elements
+            bubbleBg.innerHTML = '';
+            const cols = Math.ceil(window.innerWidth / 300);
+            const rows = Math.ceil(window.innerHeight / 200);
+            
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const bubble = document.createElement('div');
+                    bubble.className = 'bubble-bg';
+                    bubble.textContent = '○';
+                    bubble.style.left = `${c * 300 + (r % 2) * 150}px`;
+                    bubble.style.top = `${r * 200}px`;
+                    bubble.style.fontSize = `${30 + Math.random() * 50}px`;
+                    bubbleBg.appendChild(bubble);
+                }
+            }
+        }
+        
+        // Game Loop
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            drawLanes();
+            
+            if (timestamp - lastObstacleTime > 1500 / gameSpeed) {
+                spawnObstacle();
+                lastObstacleTime = timestamp;
+            }
+            
+            updateObstacles();
+            updateBubbles();
+            crabSwimPhase = (crabSwimPhase + 0.05) % (Math.PI * 2);
+            drawCrab();
+            
+            score++;
+            scoreDisplay.textContent = `Score: ${Math.floor(score/10)}`;
+            gameSpeed = 1 + Math.floor(score/3000);
+            
+            // Play bubble sounds occasionally
+            if (timestamp - lastBubbleSoundTime > 2000 && soundEnabled) {
+                bubbleSound.currentTime = 0;
+                bubbleSound.play().catch(e => console.log("Bubble sound prevented:", e));
+                lastBubbleSoundTime = timestamp;
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function drawBackground() {
+            // Water gradient
+            const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGradient.addColorStop(0, '#0a2e38');
+            bgGradient.addColorStop(0.5, '#0c3745');
+            bgGradient.addColorStop(1, '#09303d');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Light rays
+            ctx.strokeStyle = 'rgba(100, 200, 255, 0.05)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 5; i++) {
+                const x = (i + 0.5) * (canvas.width / 5);
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x + 50, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x - 50, canvas.height);
+                ctx.stroke();
+            }
+        }
+        
+        function drawLanes() {
+            ctx.strokeStyle = 'rgba(100, 200, 255, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 15]);
+            
+            for (let i = 0; i < LANE_COUNT; i++) {
+                const x = GAP + i * (LANE_WIDTH + GAP) + LANE_WIDTH/2;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+        
+        function spawnObstacle() {
+            const laneIndex = Math.floor(Math.random() * LANE_COUNT);
+            const type = Math.random() > 0.3 ? 'jellyfish' : 'seaweed';
+            const width = type === 'jellyfish' ? 60 : 40;
+            const height = type === 'jellyfish' ? 80 : 100;
+            
+            obstacles.push({
+                x: GAP + laneIndex * (LANE_WIDTH + GAP) + LANE_WIDTH/2 - width/2,
+                y: -height,
+                width: width,
+                height: height,
+                type: type,
+                speed: 3 + Math.random() * 2 * gameSpeed,
+                sway: Math.random() * 5
+            });
+        }
+        
+        function updateObstacles() {
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                obstacle.y += obstacle.speed;
+                
+                // Side-to-side movement for jellyfish
+                if (obstacle.type === 'jellyfish') {
+                    obstacle.x += Math.sin(obstacle.y * 0.05) * obstacle.sway;
+                }
+                
+                ctx.drawImage(
+                    obstacleImages[obstacle.type],
+                    obstacle.x,
+                    obstacle.y,
+                    obstacle.width,
+                    obstacle.height
+                );
+                
+                if (
+                    Math.floor(obstacle.x / (LANE_WIDTH + GAP)) === crabPosition &&
+                    obstacle.y + obstacle.height > canvas.height/2 &&
+                    obstacle.y < canvas.height/2 + CRAB_HEIGHT
+                ) {
+                    if (obstacle.type === 'seaweed') {
+                        health = Math.min(MAX_HEALTH, health + 25);
+                        showEffect(obstacle.x + obstacle.width/2, obstacle.y, '+25', '#66ff66');
+                        if (soundEnabled) {
+                            healSound.currentTime = 0;
+                            healSound.play().catch(e => console.log("Heal sound prevented:", e));
+                        }
+                    } else {
+                        health -= 15;
+                        showEffect(obstacle.x + obstacle.width/2, obstacle.y, '-15', '#ff4757');
+                        if (soundEnabled) {
+                            hitSound.currentTime = 0;
+                            hitSound.play().catch(e => console.log("Hit sound prevented:", e));
+                        }
+                    }
+                    
+                    healthFill.style.width = `${(health/MAX_HEALTH)*100}%`;
+                    obstacles.splice(i, 1);
+                    
+                    if (health <= 0) {
+                        gameOver();
+                        return;
+                    }
+                }
+                
+                if (obstacle.y > canvas.height) {
+                    obstacles.splice(i, 1);
+                }
+            }
+        }
+        
+        function updateBubbles() {
+            bubbles.forEach(bubble => {
+                bubble.y -= bubble.speed;
+                if (bubble.y < -50) {
+                    bubble.y = canvas.height + Math.random() * 50;
+                    bubble.x = Math.random() * canvas.width;
+                }
+                
+                ctx.globalAlpha = bubble.opacity;
+                ctx.drawImage(
+                    bubbleImg,
+                    bubble.x - bubble.size/2,
+                    bubble.y - bubble.size/2,
+                    bubble.size,
+                    bubble.size
+                );
+                ctx.globalAlpha = 1;
+            });
+        }
+        
+        function showEffect(x, y, text, color) {
+            const effect = {
+                x: x,
+                y: y,
+                text: text,
+                color: color,
+                alpha: 1,
+                vy: -1
+            };
+            
+            function animate() {
+                ctx.font = 'bold 20px Arial';
+                ctx.fillStyle = `${effect.color}${Math.floor(effect.alpha * 255).toString(16).padStart(2, '0')}`;
+                ctx.textAlign = 'center';
+                ctx.fillText(effect.text, effect.x, effect.y);
+                
+                effect.y += effect.vy;
+                effect.alpha -= 0.02;
+                effect.vy *= 0.95;
+                
+                if (effect.alpha > 0) {
+                    requestAnimationFrame(animate);
+                }
+            }
+            
+            animate();
+        }
+        
+        function drawCrab() {
+            const laneCenter = GAP + crabPosition * (LANE_WIDTH + GAP) + LANE_WIDTH/2;
+            const y = canvas.height/2;
+            const swimOffset = Math.sin(crabSwimPhase) * 5;
+            
+            ctx.save();
+            ctx.translate(laneCenter, y + swimOffset);
+            
+            // Draw crab shadow
+            ctx.beginPath();
+            ctx.ellipse(0, 20, CRAB_WIDTH/2, CRAB_HEIGHT/8, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fill();
+            
+            // Draw crab
+            ctx.drawImage(
+                crabImg,
+                -CRAB_WIDTH/2,
+                -CRAB_HEIGHT/2,
+                CRAB_WIDTH,
+                CRAB_HEIGHT
+            );
+            
+            if (health > MAX_HEALTH * 0.7) {
+                ctx.beginPath();
+                ctx.arc(0, -CRAB_HEIGHT/2 + 5, CRAB_WIDTH/2 + 5, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 204, 0, 0.7)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            ctx.restore();
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            
+            if (soundEnabled) {
+                bgMusic.pause();
+                gameOverSound.currentTime = 0;
+                gameOverSound.play().catch(e => console.log("Game over sound prevented:", e));
+            }
+            
+            const overlay = document.createElement('div');
+            overlay.id = 'gameOverOverlay';
+            overlay.innerHTML = `
+                <h2>Game Over!</h2>
+                <p>Final Score: ${Math.floor(score/10)}</p>
+                <button id="restartBtn" class="game-button">Play Again</button>
+            `;
+            document.body.appendChild(overlay);
+            
+            overlay.addEventListener('click', (e) => {
+                if (e.target.id === 'restartBtn') {
+                    resetGame();
+                    overlay.remove();
+                }
+            });
+        }
+        
+        function resetGame() {
+            score = 0;
+            health = MAX_HEALTH;
+            gameSpeed = 1;
+            crabPosition = 1;
+            obstacles = [];
+            healthFill.style.width = '100%';
+            scoreDisplay.textContent = 'Score: 0';
+            gameRunning = true;
+            
+            if (soundEnabled) {
+                bgMusic.currentTime = 0;
+                bgMusic.play().catch(e => console.log("BG music prevented:", e));
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            if (e.key === 'ArrowLeft' && crabPosition > 0) {
+                crabPosition--;
+                if (soundEnabled) {
+                    moveSound.currentTime = 0;
+                    moveSound.play().catch(e => console.log("Move sound prevented:", e));
+                }
+            }
+            else if (e.key === 'ArrowRight' && crabPosition < LANE_COUNT - 1) {
+                crabPosition++;
+                if (soundEnabled) {
+                    moveSound.currentTime = 0;
+                    moveSound.play().catch(e => console.log("Move sound prevented:", e));
+                }
+            }
+        });
+        
+        let touchStartX = 0;
+        document.addEventListener('touchstart', (e) => {
+            if (!gameRunning) return;
+            touchStartX = e.touches[0].clientX;
+            e.preventDefault();
+        }, { passive: false });
+        
+        document.addEventListener('touchend', (e) => {
+            if (!gameRunning) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchEndX - touchStartX;
+            
+            if (Math.abs(diff) > 30) {
+                if (diff > 0 && crabPosition < LANE_COUNT - 1) {
+                    crabPosition++;
+                    if (soundEnabled) {
+                        moveSound.currentTime = 0;
+                        moveSound.play().catch(e => console.log("Move sound prevented:", e));
+                    }
+                }
+                else if (diff < 0 && crabPosition > 0) {
+                    crabPosition--;
+                    if (soundEnabled) {
+                        moveSound.currentTime = 0;
+                        moveSound.play().catch(e => console.log("Move sound prevented:", e));
+                    }
+                }
+            }
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Start game button
+        document.getElementById('startBtn').addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            initGame();
+            resetGame();
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initGame();
+        });
+    </script>
+</body>
+</html>
